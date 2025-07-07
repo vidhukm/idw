@@ -9,8 +9,8 @@ from matplotlib.path import Path
 st.set_page_config(page_title="IDW Interpolation App", layout="wide")
 
 # Title
-st.title("IDW Interpolation of Kh Values")
-st.markdown("This app performs Inverse Distance Weighting (IDW) interpolation based on manually defined well data.")
+st.title("Inverse Weighted Distance Interpolation of K*h Values")
+st.markdown("This app performs Inverse Distance Weighting (IDW) interpolation based on measured bottomhole formation permeability and thickness.")
 
 # Define the dataset
 data = {
@@ -46,7 +46,7 @@ data = {
 df = pd.DataFrame(data)
 
 # Sidebar inputs
-st.sidebar.header("Input Coordinates")
+st.sidebar.header("Input Well Coordinates")
 target_lat = st.sidebar.number_input("Latitude", value=49.85, format="%.6f")
 target_lon = st.sidebar.number_input("Longitude", value=-102.9, format="%.6f")
 
@@ -68,11 +68,11 @@ else:
     hull_path = Path(points[hull.vertices])
 
     if not hull_path.contains_point((target_lon, target_lat)):
-        st.warning("⚠️ Point is outside the convex hull. Interpolation skipped.")
+        st.warning("⚠️ Point is outside the designated area. Interpolation skipped.")
         interpolated_value = None
     else:
         # Perform IDW interpolation at target point
-        power = 2  # IDW power parameter
+        power = 3  # IDW power parameter
         distances = np.sqrt((lons - target_lon)**2 + (lats - target_lat)**2)
         # Avoid division by zero
         if np.any(distances == 0):
