@@ -49,6 +49,7 @@ df = pd.DataFrame(data)
 st.sidebar.header("Input Well Coordinates")
 target_lat = st.sidebar.number_input("Latitude", value=49.85, format="%.6f")
 target_lon = st.sidebar.number_input("Longitude", value=-102.9, format="%.6f")
+power = st.sidebar.slider("IDW Power (controls reach)", min_value=1, max_value=10, value=2)
 
 # Extract coordinates and values
 lats = df['Lat'].values
@@ -62,6 +63,10 @@ if not exact_match.empty:
     st.success(f"✅ Exact match found. Value at (Lat: {target_lat}, Lon: {target_lon}) is {matched_value}")
     interpolated_value = matched_value
 else:
+    # Define bounds
+    min_lon, max_lon = min(lons), max(lons)
+    min_lat, max_lat = min(lats), max(lats)
+
     # Check if point is within convex hull
     points = np.column_stack((lons, lats))
     hull = ConvexHull(points)
@@ -71,10 +76,7 @@ else:
         st.warning("⚠️ Point is outside the designated area. Interpolation skipped.")
         interpolated_value = None
     else:
-        # Perform IDW interpolation at target point
-        power = st.sidebar.slider("IDW Power (controls reach)", min_value=1, max_value=10, value=2)
         distances = np.sqrt((lons - target_lon)**2 + (lats - target_lat)**2)
-        # Avoid division by zero
         if np.any(distances == 0):
             interpolated_value = values[distances == 0][0]
         else:
@@ -89,7 +91,6 @@ grid_lon_mesh, grid_lat_mesh = np.meshgrid(grid_lon, grid_lat)
 grid_z = np.zeros_like(grid_lon_mesh)
 
 # Compute IDW over grid
-power = st.sidebar.slider("IDW Power (controls reach)", min_value=1, max_value=10, value=2)
 for i in range(grid_lon_mesh.shape[0]):
     for j in range(grid_lon_mesh.shape[1]):
         gx, gy = grid_lon_mesh[i, j], grid_lat_mesh[i, j]
@@ -100,6 +101,7 @@ for i in range(grid_lon_mesh.shape[0]):
             w = 1 / dists**power
             grid_z[i, j] = np.sum(w * values) / np.sum(w)
 
+# Plotting
 fig, ax = plt.subplots(figsize=(12, 6))
 contour = ax.contourf(grid_lon_mesh, grid_lat_mesh, grid_z, cmap='cividis', levels=20)
 scatter = ax.scatter(lons, lats, c=values, edgecolor='k', cmap='viridis', label='Data Points')
