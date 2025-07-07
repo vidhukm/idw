@@ -67,7 +67,7 @@ else:
     hull = ConvexHull(points)
     hull_path = Path(points[hull.vertices])
 
-    if not hull_path.contains_point((target_lon, target_lat)):
+   if not (min_lon <= target_lon <= max_lon and min_lat <= target_lat <= max_lat):
         st.warning("⚠️ Point is outside the designated area. Interpolation skipped.")
         interpolated_value = None
     else:
@@ -89,7 +89,7 @@ grid_lon_mesh, grid_lat_mesh = np.meshgrid(grid_lon, grid_lat)
 grid_z = np.zeros_like(grid_lon_mesh)
 
 # Compute IDW over grid
-power = 2
+power = st.sidebar.slider("IDW Power (controls reach)", min_value=1, max_value=10, value=2)
 for i in range(grid_lon_mesh.shape[0]):
     for j in range(grid_lon_mesh.shape[1]):
         gx, gy = grid_lon_mesh[i, j], grid_lat_mesh[i, j]
