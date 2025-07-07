@@ -6,8 +6,8 @@ from scipy.spatial import ConvexHull
 from matplotlib.path import Path
 from haversine import haversine, Unit
 
-st.set_page_config(page_title="Creeman Land Sale IDW Interpolation", layout="wide")
-st.title("Inverse Distance Weighting of K*h Values")
+st.set_page_config(page_title="IDW Interpolation", layout="wide")
+st.title("Inverse Distance Weighting of Measured K*h Values")
 st.markdown(
     "Performs IDW interpolation on latitude/longitude using haversine distances (km). "
     "Interpolation is confined to the perimeter of the data."
