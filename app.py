@@ -6,41 +6,20 @@ from scipy.spatial import ConvexHull
 from matplotlib.path import Path
 from haversine import haversine, Unit
 
-# Set page configuration
+# Page config
 st.set_page_config(page_title="IDW Interpolation App", layout="wide")
-
-# Title
 st.title("Inverse Weighted Distance Interpolation of K*h Values")
-st.markdown("This app performs IDW interpolation directly on lat/lon using haversine distances (km), ensuring map aligns perfectly with latitude/longitude axes.")
+st.markdown(
+    "This app performs IDW interpolation directly on lat/lon using haversine distances (km). "
+    "It uses all points within the convex hull of your data (no radius cutoff)."
+)
 
 # Data
 data = {
-    'UWI': [
-        '101/01-29-011-06W2/00', '101/04-22-010-05W2/00', '101/05-23-010-10W2/00',
-        '101/11-25-010-08W2/00', '101/13-07-009-05W2/00', '101/16-29-010-06W2/00',
-        '111/03-27-011-05W2/00', '111/04-08-011-07W2/00', '111/04-12-012-07W2/00',
-        '111/04-18-009-09W2/00', '111/04-21-009-07W2/00', '121/03-03-010-07W2/00',
-        '121/05-29-010-11W2/00', '121/12-05-011-05W2/00', '121/14-24-012-08W2/00',
-        '131/02-08-012-04W2/00', '131/13-21-009-07W2/00', '141/08-27-012-06W2/00',
-        '141/13-18-010-08W2/00', '141/15-26-011-06W2/00', '141/16-02-011-08W2/00',
-        '191/04-28-009-10W2/00', '191/16-26-010-06W2/00'
-    ],
-    'Lat': [
-        49.931383, 49.829286, 49.833671, 49.855245, 49.724227, 49.85674,
-        49.931954, 49.888158, 49.974766, 49.72755, 49.741497, 49.785373,
-        49.847617, 49.880096, 50.015431, 49.977522, 49.75371, 50.02486,
-        49.827066, 49.944846, 49.885641, 49.75847, 49.855041
-    ],
-    'Long': [
-        -102.781818, -102.613696, -103.269454, -102.968955, -102.681063, -102.776664,
-        -102.610789, -102.934808, -102.843135, -103.222192, -102.904647, -102.878683,
-        -103.471582, -102.663714, -102.977483, -102.515151, -102.907216, -102.735345,
-        -103.086901, -102.718421, -102.985106, -103.313913, -102.70758
-    ],
-    'Kh': [
-        1.39, 4.77, 0.8, 1.29, 0.7, 6.07, 0.42, 1.18, 0.67, 0.22, 1.79, 0.53,
-        0.53, 0.96, 0.99, 1.7, 0.8, 0.38, 0.92, 2.64, 0.52, 0.24, 0.93
-    ]
+    'UWI': [...],  # your UWI list
+    'Lat': [...],  # your latitude list
+    'Long': [...], # your longitude list
+    'Kh': [...]    # your Kh list
 }
 df = pd.DataFrame(data)
 
@@ -49,55 +28,40 @@ st.sidebar.header("Input Well Coordinates")
 target_lat = st.sidebar.number_input("Latitude", value=49.85, format="%.6f")
 target_lon = st.sidebar.number_input("Longitude", value=-102.9, format="%.6f")
 power = st.sidebar.slider("IDW Power", min_value=1, max_value=10, value=2)
-radius_cutoff = st.sidebar.number_input("Radius Cutoff (km)", min_value=1.0, max_value=100.0, value=10.0, step=1.0)
 
+# Extract data
 lats = df["Lat"].values
 lons = df["Long"].values
 values = df["Kh"].values
 
-# Check for exact match
-exact_match = df[(df["Lat"] == target_lat) & (df["Long"] == target_lon)]
-if not exact_match.empty:
-    matched_value = exact_match["Kh"].values[0]
-    st.success(f"✅ Exact match at (Lat: {target_lat}, Lon: {target_lon}): {matched_value}")
-    interpolated_value = matched_value
+# Convex hull setup
+points = np.column_stack((lons, lats))
+hull = ConvexHull(points)
+hull_path = Path(points[hull.vertices])
+
+# IDW interpolation at target point
+if not hull_path.contains_point((target_lon, target_lat)):
+    st.warning("⚠️ Point is outside convex hull. Interpolation skipped.")
+    interpolated_value = None
 else:
-    points = np.column_stack((lons, lats))
-    hull = ConvexHull(points)
-    hull_path = Path(points[hull.vertices])
+    dists = np.array([haversine((target_lat, target_lon), (lat, lon), unit=Unit.KILOMETERS)
+                      for lat, lon in zip(lats, lons)])
+    dists[dists == 0] = 1e-6
+    weights = 1 / dists**power
+    interpolated_value = np.sum(weights * values) / np.sum(weights)
+    st.success(f"✅ Interpolated value at (Lat: {target_lat}, Lon: {target_lon}): {interpolated_value:.2f}")
 
-    if not hull_path.contains_point((target_lon, target_lat)):
-        st.warning("⚠️ Point is outside convex hull. Interpolation skipped.")
-        interpolated_value = None
-    else:
-        dists = np.array([haversine((target_lat, target_lon), (lat, lon), unit=Unit.KILOMETERS)
-                          for lat, lon in zip(lats, lons)])
-        weights = np.zeros_like(dists)
-        inside_radius = dists <= radius_cutoff
-        dists_filtered = dists[inside_radius]
-        values_filtered = values[inside_radius]
-        dists_filtered[dists_filtered == 0] = 1e-6
-        weights_filtered = 1 / dists_filtered**power
-        weights[inside_radius] = weights_filtered
-
-        if weights.sum() == 0:
-            st.warning("⚠️ No points within radius cutoff. Interpolation skipped.")
-            interpolated_value = None
-        else:
-            interpolated_value = np.sum(weights * values) / np.sum(weights)
-            st.success(f"✅ Interpolated value at (Lat: {target_lat}, Lon: {target_lon}): {interpolated_value:.2f}")
-
-# Grid setup
+# Create grid for map
 grid_lon = np.linspace(min(lons), max(lons), 200)
 grid_lat = np.linspace(min(lats), max(lats), 200)
 grid_lon_mesh, grid_lat_mesh = np.meshgrid(grid_lon, grid_lat)
 grid_z = np.full_like(grid_lon_mesh, np.nan)
 
-# Convex hull mask
+# Mask grid to convex hull
 grid_points = np.column_stack((grid_lon_mesh.ravel(), grid_lat_mesh.ravel()))
 mask = hull_path.contains_points(grid_points).reshape(grid_lon_mesh.shape)
 
-# Interpolation with mask
+# Interpolation over grid
 for i in range(grid_lat_mesh.shape[0]):
     for j in range(grid_lat_mesh.shape[1]):
         if not mask[i, j]:
@@ -105,27 +69,27 @@ for i in range(grid_lat_mesh.shape[0]):
         gx, gy = grid_lon_mesh[i, j], grid_lat_mesh[i, j]
         dists = np.array([haversine((gy, gx), (lat, lon), unit=Unit.KILOMETERS)
                           for lat, lon in zip(lats, lons)])
-        inside_radius = dists <= radius_cutoff
-        if not np.any(inside_radius):
-            nearest_idx = np.argmin(dists)
-            grid_z[i, j] = values[nearest_idx]
-            continue
-        dists_filtered = dists[inside_radius]
-        values_filtered = values[inside_radius]
-        dists_filtered[dists_filtered == 0] = 1e-6
-        weights = 1 / dists_filtered**power
-        grid_z[i, j] = np.sum(weights * values_filtered) / np.sum(weights)
+        dists[dists == 0] = 1e-6
+        weights = 1 / dists**power
+        grid_z[i, j] = np.sum(weights * values) / np.sum(weights)
 
 # Plot
-fig, ax = plt.subplots(figsize=(12, 6), dpi=1200)  # Higher DPI for better resolution
+fig, ax = plt.subplots(figsize=(12, 6), dpi=300)
+ax.set_facecolor('dimgray')  # set dark gray background
 
-contour = ax.contourf(grid_lon_mesh, grid_lat_mesh, grid_z, cmap='inferno', levels=200)  # More levels for smoother gradients
+contour = ax.contourf(
+    grid_lon_mesh, grid_lat_mesh, grid_z,
+    cmap='inferno', levels=200
+)
 
+# Wells & target
 ax.scatter(lons, lats, c='white', edgecolor='k', label='Data Points')
-ax.scatter(target_lon, target_lat, color='red', marker='x', s=100, label='Target Location')
+ax.scatter(target_lon, target_lat, color='cyan', marker='x', s=100, label='Target Location')
+
 plt.colorbar(contour, ax=ax, label='Interpolated Value')
-ax.set_title("IDW Interpolation Map (Haversine, masked to Convex Hull)")
+ax.set_title("IDW Interpolation Map (Haversine, inside Convex Hull)")
 ax.set_xlabel("Longitude")
 ax.set_ylabel("Latitude")
 ax.legend()
+
 st.pyplot(fig)
