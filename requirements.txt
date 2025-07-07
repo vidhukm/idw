@@ -4,4 +4,4 @@ numpy
 matplotlib
 pykrige
 scipy
-pyproj
+haversine
