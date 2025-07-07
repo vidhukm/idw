@@ -44,11 +44,12 @@ data = {
 }
 df = pd.DataFrame(data)
 
-# Sidebar
+# Sidebar inputs
 st.sidebar.header("Input Well Coordinates")
 target_lat = st.sidebar.number_input("Latitude", value=49.85, format="%.6f")
 target_lon = st.sidebar.number_input("Longitude", value=-102.9, format="%.6f")
 power = st.sidebar.slider("IDW Power", min_value=1, max_value=10, value=2)
+radius_cutoff = st.sidebar.number_input("Radius Cutoff (km)", min_value=1.0, max_value=100.0, value=10.0, step=1.0)
 
 lats = df["Lat"].values
 lons = df["Long"].values
@@ -73,10 +74,25 @@ else:
         # Calculate haversine distances
         dists = np.array([haversine((target_lat, target_lon), (lat, lon), unit=Unit.KILOMETERS)
                           for lat, lon in zip(lats, lons)])
-        dists[dists == 0] = 1e-6
-        weights = 1 / dists**power
-        interpolated_value = np.sum(weights * values) / np.sum(weights)
-        st.success(f"✅ Interpolated value at (Lat: {target_lat}, Lon: {target_lon}): {interpolated_value:.2f}")
+
+        # Apply radius cutoff: zero weights for points beyond cutoff
+        weights = np.zeros_like(dists)
+        inside_radius = dists <= radius_cutoff
+        dists_filtered = dists[inside_radius]
+        values_filtered = values[inside_radius]
+
+        # Avoid division by zero for exact match distances
+        dists_filtered[dists_filtered == 0] = 1e-6
+
+        weights_filtered = 1 / dists_filtered**power
+        weights[inside_radius] = weights_filtered
+
+        if weights.sum() == 0:
+            st.warning("⚠️ No points within radius cutoff. Interpolation skipped.")
+            interpolated_value = None
+        else:
+            interpolated_value = np.sum(weights * values) / np.sum(weights)
+            st.success(f"✅ Interpolated value at (Lat: {target_lat}, Lon: {target_lon}): {interpolated_value:.2f}")
 
 # Generate lat/lon grid
 grid_lon = np.linspace(min(lons), max(lons), 200)
@@ -84,15 +100,24 @@ grid_lat = np.linspace(min(lats), max(lats), 200)
 grid_lon_mesh, grid_lat_mesh = np.meshgrid(grid_lon, grid_lat)
 grid_z = np.zeros_like(grid_lon_mesh)
 
-# Compute IDW on grid
+# Compute IDW on grid with radius cutoff
 for i in range(grid_lat_mesh.shape[0]):
     for j in range(grid_lat_mesh.shape[1]):
         gx, gy = grid_lon_mesh[i, j], grid_lat_mesh[i, j]
         dists = np.array([haversine((gy, gx), (lat, lon), unit=Unit.KILOMETERS)
                           for lat, lon in zip(lats, lons)])
-        dists[dists == 0] = 1e-6
-        w = 1 / dists**power
-        grid_z[i, j] = np.sum(w * values) / np.sum(w)
+
+        inside_radius = dists <= radius_cutoff
+        if not np.any(inside_radius):
+            grid_z[i, j] = np.nan  # No data within radius cutoff
+            continue
+
+        dists_filtered = dists[inside_radius]
+        values_filtered = values[inside_radius]
+        dists_filtered[dists_filtered == 0] = 1e-6
+
+        weights = 1 / dists_filtered**power
+        grid_z[i, j] = np.sum(weights * values_filtered) / np.sum(weights)
 
 # Plot
 fig, ax = plt.subplots(figsize=(12, 6))
