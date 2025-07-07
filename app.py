@@ -4,16 +4,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull
 from matplotlib.path import Path
-from pyproj import Transformer
+from haversine import haversine, Unit
 
 # Set page configuration
 st.set_page_config(page_title="IDW Interpolation App", layout="wide")
 
 # Title
 st.title("Inverse Weighted Distance Interpolation of K*h Values")
-st.markdown("This app performs IDW interpolation in projected space to ensure distance accuracy, then plots results back in Lat/Lon.")
+st.markdown("This app performs IDW interpolation directly on lat/lon using haversine distances (km), ensuring map aligns perfectly with latitude/longitude axes.")
 
-# Define the dataset
+# Data
 data = {
     'UWI': [
         '101/01-29-011-06W2/00', '101/04-22-010-05W2/00', '101/05-23-010-10W2/00',
@@ -42,7 +42,6 @@ data = {
         0.53, 0.96, 0.99, 1.7, 0.8, 0.38, 0.92, 2.64, 0.52, 0.24, 0.93
     ]
 }
-
 df = pd.DataFrame(data)
 
 # Sidebar
@@ -51,18 +50,9 @@ target_lat = st.sidebar.number_input("Latitude", value=49.85, format="%.6f")
 target_lon = st.sidebar.number_input("Longitude", value=-102.9, format="%.6f")
 power = st.sidebar.slider("IDW Power", min_value=1, max_value=10, value=2)
 
-# Coordinate transformers
-# Forward: lat/lon -> UTM Zone 13N
-transformer_fwd = Transformer.from_crs("EPSG:4326", "EPSG:32613", always_xy=True)
-# Backward: UTM -> lat/lon
-transformer_inv = Transformer.from_crs("EPSG:32613", "EPSG:4326", always_xy=True)
-
-# Project all points
-df["X"], df["Y"] = transformer_fwd.transform(df["Long"].values, df["Lat"].values)
-target_x, target_y = transformer_fwd.transform(target_lon, target_lat)
-
-# IDW setup
-x, y, values = df["X"].values, df["Y"].values, df["Kh"].values
+lats = df["Lat"].values
+lons = df["Long"].values
+values = df["Kh"].values
 
 # Check for exact match
 exact_match = df[(df["Lat"] == target_lat) & (df["Long"] == target_lon)]
@@ -71,50 +61,46 @@ if not exact_match.empty:
     st.success(f"✅ Exact match at (Lat: {target_lat}, Lon: {target_lon}): {matched_value}")
     interpolated_value = matched_value
 else:
-    # Convex hull test
-    points = np.column_stack((x, y))
+    # Check convex hull
+    points = np.column_stack((lons, lats))
     hull = ConvexHull(points)
     hull_path = Path(points[hull.vertices])
 
-    if not hull_path.contains_point((target_x, target_y)):
-        st.warning("⚠️ Point outside convex hull. Skipping interpolation.")
+    if not hull_path.contains_point((target_lon, target_lat)):
+        st.warning("⚠️ Point is outside convex hull. Interpolation skipped.")
         interpolated_value = None
     else:
-        distances = np.sqrt((x - target_x)**2 + (y - target_y)**2)
-        if np.any(distances == 0):
-            interpolated_value = values[distances == 0][0]
-        else:
-            weights = 1 / distances**power
-            interpolated_value = np.sum(weights * values) / np.sum(weights)
+        # Calculate haversine distances
+        dists = np.array([haversine((target_lat, target_lon), (lat, lon), unit=Unit.KILOMETERS)
+                          for lat, lon in zip(lats, lons)])
+        dists[dists == 0] = 1e-6
+        weights = 1 / dists**power
+        interpolated_value = np.sum(weights * values) / np.sum(weights)
         st.success(f"✅ Interpolated value at (Lat: {target_lat}, Lon: {target_lon}): {interpolated_value:.2f}")
 
-# Create interpolation grid in projected space
-grid_x = np.linspace(min(x), max(x), 200)
-grid_y = np.linspace(min(y), max(y), 200)
-grid_x_mesh, grid_y_mesh = np.meshgrid(grid_x, grid_y)
-grid_z = np.zeros_like(grid_x_mesh)
+# Generate lat/lon grid
+grid_lon = np.linspace(min(lons), max(lons), 200)
+grid_lat = np.linspace(min(lats), max(lats), 200)
+grid_lon_mesh, grid_lat_mesh = np.meshgrid(grid_lon, grid_lat)
+grid_z = np.zeros_like(grid_lon_mesh)
 
-# IDW over grid
-for i in range(grid_x_mesh.shape[0]):
-    for j in range(grid_x_mesh.shape[1]):
-        gx, gy = grid_x_mesh[i, j], grid_y_mesh[i, j]
-        dists = np.sqrt((x - gx)**2 + (y - gy)**2)
-        if np.any(dists == 0):
-            grid_z[i, j] = values[dists == 0][0]
-        else:
-            w = 1 / dists**power
-            grid_z[i, j] = np.sum(w * values) / np.sum(w)
+# Compute IDW on grid
+for i in range(grid_lat_mesh.shape[0]):
+    for j in range(grid_lat_mesh.shape[1]):
+        gx, gy = grid_lon_mesh[i, j], grid_lat_mesh[i, j]
+        dists = np.array([haversine((gy, gx), (lat, lon), unit=Unit.KILOMETERS)
+                          for lat, lon in zip(lats, lons)])
+        dists[dists == 0] = 1e-6
+        w = 1 / dists**power
+        grid_z[i, j] = np.sum(w * values) / np.sum(w)
 
-# Convert grid back to lat/lon for plotting
-grid_lon_mesh, grid_lat_mesh = transformer_inv.transform(grid_x_mesh, grid_y_mesh)
-
-# Plot in lat/lon
+# Plot
 fig, ax = plt.subplots(figsize=(12, 6))
 contour = ax.contourf(grid_lon_mesh, grid_lat_mesh, grid_z, cmap='cividis', levels=20)
-scatter = ax.scatter(df["Long"], df["Lat"], c=values, edgecolor='k', cmap='viridis', label='Data Points')
+scatter = ax.scatter(lons, lats, c=values, edgecolor='k', cmap='viridis', label='Data Points')
 ax.scatter(target_lon, target_lat, color='red', marker='x', s=100, label='Target Location')
 plt.colorbar(contour, ax=ax, label='Interpolated Value')
-ax.set_title("IDW Interpolation Map in Latitude/Longitude")
+ax.set_title("IDW Interpolation Map (Haversine, aligned to Lat/Lon)")
 ax.set_xlabel("Longitude")
 ax.set_ylabel("Latitude")
 ax.legend()
