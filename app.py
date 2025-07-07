@@ -74,7 +74,7 @@ else:
     else:
         OK = OrdinaryKriging(
             lons, lats, values,
-            variogram_model='spherical',
+            variogram_model='exponential',
             verbose=False,
             enable_plotting=False
         )
