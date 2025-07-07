@@ -123,8 +123,8 @@ for i in range(grid_lat_mesh.shape[0]):
 
 # Plot
 fig, ax = plt.subplots(figsize=(12, 6))
-contour = ax.contourf(grid_lon_mesh, grid_lat_mesh, grid_z, cmap='inferno', levels=20)
-scatter = ax.scatter(lons, lats, c=values, edgecolor='k', cmap='inferno', label='Data Points')
+contour = ax.contourf(grid_lon_mesh, grid_lat_mesh, grid_z, cmap='viridis', levels=20)
+scatter = ax.scatter(lons, lats, c=values, edgecolor='k', cmap='viridis', label='Data Points')
 ax.scatter(target_lon, target_lat, color='red', marker='x', s=100, label='Target Location')
 plt.colorbar(contour, ax=ax, label='Interpolated Value')
 ax.set_title("IDW Interpolation Map (Haversine, aligned to Lat/Lon)")
