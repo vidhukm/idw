@@ -123,6 +123,27 @@ for i in range(grid_lat_mesh.shape[0]):
 
 # Plot
 fig, ax = plt.subplots(figsize=(12, 6))
+# Reference latitude for longitude conversion (mean latitude of data)
+ref_lat = np.mean(lats)
+mile_in_km = 1.60934
+
+# Degrees per mile in latitude (approx constant)
+deg_per_mile_lat = 1 / 69  # ~0.0145 degrees
+
+# Degrees per mile in longitude (depends on latitude)
+deg_per_mile_lon = 1 / (math.cos(math.radians(ref_lat)) * 69)  # ~0.0225 degrees at 50°
+
+# Define ticks
+lat_ticks = np.arange(np.floor(min(lats)), np.ceil(max(lats)), deg_per_mile_lat)
+lon_ticks = np.arange(np.floor(min(lons)), np.ceil(max(lons)), deg_per_mile_lon)
+
+# Add gridlines
+ax.set_xticks(lon_ticks)
+ax.set_yticks(lat_ticks)
+ax.grid(which='both', color='gray', linestyle='--', linewidth=0.5)
+
+# Optionally, improve grid visibility:
+ax.minorticks_off()
 contour = ax.contourf(grid_lon_mesh, grid_lat_mesh, grid_z, cmap='cividis', levels=20)
 scatter = ax.scatter(lons, lats, c=values, edgecolor='k', cmap='viridis', label='Data Points')
 ax.scatter(target_lon, target_lat, color='red', marker='x', s=100, label='Target Location')
