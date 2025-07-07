@@ -117,7 +117,7 @@ for i in range(grid_lat_mesh.shape[0]):
         grid_z[i, j] = np.sum(weights * values_filtered) / np.sum(weights)
 
 # Plot
-fig, ax = plt.subplots(figsize=(12, 6), dpi=300)  # Higher DPI for better resolution
+fig, ax = plt.subplots(figsize=(12, 6), dpi=1200)  # Higher DPI for better resolution
 
 contour = ax.contourf(grid_lon_mesh, grid_lat_mesh, grid_z, cmap='inferno', levels=100)  # More levels for smoother gradients
 
