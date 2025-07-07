@@ -1,4 +1,4 @@
-can you put a mile by mile grid on the final map: import streamlit as st
+import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
