@@ -50,11 +50,19 @@ st.sidebar.header("Input Well Coordinates")
 target_lat = st.sidebar.number_input("Latitude", value=49.85, format="%.6f")
 target_lon = st.sidebar.number_input("Longitude", value=-102.9, format="%.6f")
 power = st.sidebar.slider("IDW Power (controls reach)", min_value=1, max_value=10, value=2)
+max_reach = st.sidebar.number_input("Max Reach Distance (degrees)", value=0.1, min_value=0.0, step=0.01)
 
 # Extract coordinates and values
 lats = df['Lat'].values
 lons = df['Long'].values
 values = df['Kh'].values
+
+# Precompute cos of average latitude for distance scaling
+lat_avg = np.mean(lats)
+cos_lat = np.cos(np.radians(lat_avg))
+
+def scaled_distance(lon1, lat1, lon2, lat2):
+    return np.sqrt((cos_lat * (lon1 - lon2))**2 + (lat1 - lat2)**2)
 
 # Check for exact match
 exact_match = df[(df['Lat'] == target_lat) & (df['Long'] == target_lon)]
@@ -63,7 +71,7 @@ if not exact_match.empty:
     st.success(f"✅ Exact match found. Value at (Lat: {target_lat}, Lon: {target_lon}) is {matched_value}")
     interpolated_value = matched_value
 else:
-    # Define bounds
+    # Define bounds (still in raw lon/lat degrees)
     min_lon, max_lon = min(lons), max(lons)
     min_lat, max_lat = min(lats), max(lats)
 
@@ -76,13 +84,22 @@ else:
         st.warning("⚠️ Point is outside the designated area. Interpolation skipped.")
         interpolated_value = None
     else:
-        distances = np.sqrt((lons - target_lon)**2 + (lats - target_lat)**2)
-        if np.any(distances == 0):
-            interpolated_value = values[distances == 0][0]
+        distances = scaled_distance(lons, lats, target_lon, target_lat)
+        within_reach = distances <= max_reach
+
+        if not np.any(within_reach):
+            st.warning("⚠️ No data points within the max reach distance. Interpolation skipped.")
+            interpolated_value = None
         else:
-            weights = 1 / distances**power
-            interpolated_value = np.sum(weights * values) / np.sum(weights)
-        st.success(f"✅ Interpolated value at (Lat: {target_lat}, Lon: {target_lon}) is {interpolated_value:.2f}")
+            filtered_distances = distances[within_reach]
+            filtered_values = values[within_reach]
+
+            if np.any(filtered_distances == 0):
+                interpolated_value = filtered_values[filtered_distances == 0][0]
+            else:
+                weights = 1 / filtered_distances**power
+                interpolated_value = np.sum(weights * filtered_values) / np.sum(weights)
+            st.success(f"✅ Interpolated value at (Lat: {target_lat}, Lon: {target_lon}) is {interpolated_value:.2f}")
 
 # Generate contour map
 grid_lon = np.linspace(min(lons), max(lons), 200)
@@ -90,16 +107,24 @@ grid_lat = np.linspace(min(lats), max(lats), 200)
 grid_lon_mesh, grid_lat_mesh = np.meshgrid(grid_lon, grid_lat)
 grid_z = np.zeros_like(grid_lon_mesh)
 
-# Compute IDW over grid
+# Compute IDW over grid with scaled distances and max reach
 for i in range(grid_lon_mesh.shape[0]):
     for j in range(grid_lon_mesh.shape[1]):
         gx, gy = grid_lon_mesh[i, j], grid_lat_mesh[i, j]
-        dists = np.sqrt((lons - gx)**2 + (lats - gy)**2)
-        if np.any(dists == 0):
-            grid_z[i, j] = values[dists == 0][0]
+        dists = scaled_distance(lons, lats, gx, gy)
+        within_reach = dists <= max_reach
+
+        if not np.any(within_reach):
+            grid_z[i, j] = np.nan  # Mark as no data
         else:
-            w = 1 / dists**power
-            grid_z[i, j] = np.sum(w * values) / np.sum(w)
+            filtered_dists = dists[within_reach]
+            filtered_values = values[within_reach]
+
+            if np.any(filtered_dists == 0):
+                grid_z[i, j] = filtered_values[filtered_dists == 0][0]
+            else:
+                w = 1 / filtered_dists**power
+                grid_z[i, j] = np.sum(w * filtered_values) / np.sum(w)
 
 # Plotting
 fig, ax = plt.subplots(figsize=(12, 6))
