@@ -72,7 +72,7 @@ else:
         interpolated_value = None
     else:
         # Perform IDW interpolation at target point
-        power = 3  # IDW power parameter
+        power = 5  # IDW power parameter
         distances = np.sqrt((lons - target_lon)**2 + (lats - target_lat)**2)
         # Avoid division by zero
         if np.any(distances == 0):
