@@ -109,7 +109,9 @@ for i in range(grid_lat_mesh.shape[0]):
 
         inside_radius = dists <= radius_cutoff
         if not np.any(inside_radius):
-            grid_z[i, j] = np.nan  # No data within radius cutoff
+            # No points within radius — assign nearest well's value instead
+            nearest_idx = np.argmin(dists)
+            grid_z[i, j] = values[nearest_idx]
             continue
 
         dists_filtered = dists[inside_radius]
