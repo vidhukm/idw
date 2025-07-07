@@ -89,7 +89,7 @@ grid_lon_mesh, grid_lat_mesh = np.meshgrid(grid_lon, grid_lat)
 grid_z = np.zeros_like(grid_lon_mesh)
 
 # Compute IDW over grid
-power = 3
+power = 5
 for i in range(grid_lon_mesh.shape[0]):
     for j in range(grid_lon_mesh.shape[1]):
         gx, gy = grid_lon_mesh[i, j], grid_lat_mesh[i, j]
