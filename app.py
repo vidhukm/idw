@@ -145,6 +145,7 @@ ax.grid(which='both', color='gray', linestyle='--', linewidth=0.5)
 
 # Optionally, improve grid visibility:
 ax.minorticks_off()
+ax.majorticks_off()
 contour = ax.contourf(grid_lon_mesh, grid_lat_mesh, grid_z, cmap='cividis', levels=20)
 scatter = ax.scatter(lons, lats, c=values, edgecolor='k', cmap='viridis', label='Data Points')
 ax.scatter(target_lon, target_lat, color='red', marker='x', s=100, label='Target Location')
