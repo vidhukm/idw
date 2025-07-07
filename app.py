@@ -6,11 +6,11 @@ from scipy.spatial import ConvexHull
 from matplotlib.path import Path
 from haversine import haversine, Unit
 
-st.set_page_config(page_title="IDW Interpolation App", layout="wide")
+st.set_page_config(page_title="Creeman Land Sale IDW Interpolation", layout="wide")
 st.title("Inverse Distance Weighting of K*h Values")
 st.markdown(
     "Performs IDW interpolation on latitude/longitude using haversine distances (km). "
-    "Interpolation is confined to the convex hull of the data."
+    "Interpolation is confined to the perimeter of the data."
 )
 
 # Data
@@ -89,7 +89,7 @@ for i in range(grid_lat_mesh.shape[0]):
             grid_z[i, j] = idw_interpolation(grid_lon_mesh[i, j], grid_lat_mesh[i, j], power)
 
 # Plot
-fig, ax = plt.subplots(figsize=(12, 6), dpi=600)
+fig, ax = plt.subplots(figsize=(8, 4), dpi=600)
 ax.set_facecolor('dimgray')
 contour = ax.contourf(grid_lon_mesh, grid_lat_mesh, grid_z, cmap='inferno', levels=200)
 ax.scatter(df["Long"], df["Lat"], c='white', edgecolor='k', label='Data Points')
