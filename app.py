@@ -67,12 +67,12 @@ else:
     hull = ConvexHull(points)
     hull_path = Path(points[hull.vertices])
 
-   if not (min_lon <= target_lon <= max_lon and min_lat <= target_lat <= max_lat):
-    st.warning("⚠️ Point is outside the designated area. Interpolation skipped.")
-    interpolated_value = None
+    if not (min_lon <= target_lon <= max_lon and min_lat <= target_lat <= max_lat):
+        st.warning("⚠️ Point is outside the designated area. Interpolation skipped.")
+        interpolated_value = None
     else:
         # Perform IDW interpolation at target point
-        power = 5  # IDW power parameter
+        power = st.sidebar.slider("IDW Power (controls reach)", min_value=1, max_value=10, value=2)
         distances = np.sqrt((lons - target_lon)**2 + (lats - target_lat)**2)
         # Avoid division by zero
         if np.any(distances == 0):
