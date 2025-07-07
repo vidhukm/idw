@@ -68,8 +68,8 @@ else:
     hull_path = Path(points[hull.vertices])
 
    if not (min_lon <= target_lon <= max_lon and min_lat <= target_lat <= max_lat):
-        st.warning("⚠️ Point is outside the designated area. Interpolation skipped.")
-        interpolated_value = None
+    st.warning("⚠️ Point is outside the designated area. Interpolation skipped.")
+    interpolated_value = None
     else:
         # Perform IDW interpolation at target point
         power = 5  # IDW power parameter
