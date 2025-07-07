@@ -2,16 +2,15 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from pykrige.ok import OrdinaryKriging
 from scipy.spatial import ConvexHull
 from matplotlib.path import Path
 
 # Set page configuration
-st.set_page_config(page_title="Kriging Interpolation App", layout="wide")
+st.set_page_config(page_title="IDW Interpolation App", layout="wide")
 
 # Title
-st.title("Kriging Interpolation of Kh Values")
-st.markdown("This app performs Kriging interpolation based on manually defined well data.")
+st.title("IDW Interpolation of Kh Values")
+st.markdown("This app performs Inverse Distance Weighting (IDW) interpolation based on manually defined well data.")
 
 # Define the dataset
 data = {
@@ -72,35 +71,41 @@ else:
         st.warning("⚠️ Point is outside the convex hull. Interpolation skipped.")
         interpolated_value = None
     else:
-        OK = OrdinaryKriging(
-            lons, lats, values,
-            variogram_model='exponential',
-            verbose=False,
-            enable_plotting=False
-        )
-        z, ss = OK.execute('points', [target_lon], [target_lat])
-        interpolated_value = z[0]
+        # Perform IDW interpolation at target point
+        power = 2  # IDW power parameter
+        distances = np.sqrt((lons - target_lon)**2 + (lats - target_lat)**2)
+        # Avoid division by zero
+        if np.any(distances == 0):
+            interpolated_value = values[distances == 0][0]
+        else:
+            weights = 1 / distances**power
+            interpolated_value = np.sum(weights * values) / np.sum(weights)
         st.success(f"✅ Interpolated value at (Lat: {target_lat}, Lon: {target_lon}) is {interpolated_value:.2f}")
 
 # Generate contour map
-grid_lon = np.linspace(min(lons), max(lons), 500)
-grid_lat = np.linspace(min(lats), max(lats), 250)
+grid_lon = np.linspace(min(lons), max(lons), 200)
+grid_lat = np.linspace(min(lats), max(lats), 200)
 grid_lon_mesh, grid_lat_mesh = np.meshgrid(grid_lon, grid_lat)
+grid_z = np.zeros_like(grid_lon_mesh)
 
-OK_grid = OrdinaryKriging(
-    lons, lats, values,
-    variogram_model='spherical',
-    verbose=False,
-    enable_plotting=False
-)
-z_grid, ss_grid = OK_grid.execute('grid', grid_lon, grid_lat)
+# Compute IDW over grid
+power = 2
+for i in range(grid_lon_mesh.shape[0]):
+    for j in range(grid_lon_mesh.shape[1]):
+        gx, gy = grid_lon_mesh[i, j], grid_lat_mesh[i, j]
+        dists = np.sqrt((lons - gx)**2 + (lats - gy)**2)
+        if np.any(dists == 0):
+            grid_z[i, j] = values[dists == 0][0]
+        else:
+            w = 1 / dists**power
+            grid_z[i, j] = np.sum(w * values) / np.sum(w)
 
 fig, ax = plt.subplots(figsize=(12, 6))
-contour = ax.contourf(grid_lon_mesh, grid_lat_mesh, z_grid, cmap='cividis')
+contour = ax.contourf(grid_lon_mesh, grid_lat_mesh, grid_z, cmap='cividis', levels=20)
 scatter = ax.scatter(lons, lats, c=values, edgecolor='k', cmap='viridis', label='Data Points')
 ax.scatter(target_lon, target_lat, color='red', marker='x', s=100, label='Target Location')
 plt.colorbar(contour, ax=ax, label='Interpolated Value')
-ax.set_title("Kriging Interpolation with Target Location")
+ax.set_title("IDW Interpolation with Target Location")
 ax.set_xlabel("Longitude")
 ax.set_ylabel("Latitude")
 ax.legend()
