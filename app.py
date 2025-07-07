@@ -62,7 +62,6 @@ if not exact_match.empty:
     st.success(f"✅ Exact match at (Lat: {target_lat}, Lon: {target_lon}): {matched_value}")
     interpolated_value = matched_value
 else:
-    # Check convex hull
     points = np.column_stack((lons, lats))
     hull = ConvexHull(points)
     hull_path = Path(points[hull.vertices])
@@ -71,19 +70,13 @@ else:
         st.warning("⚠️ Point is outside convex hull. Interpolation skipped.")
         interpolated_value = None
     else:
-        # Calculate haversine distances
         dists = np.array([haversine((target_lat, target_lon), (lat, lon), unit=Unit.KILOMETERS)
                           for lat, lon in zip(lats, lons)])
-
-        # Apply radius cutoff: zero weights for points beyond cutoff
         weights = np.zeros_like(dists)
         inside_radius = dists <= radius_cutoff
         dists_filtered = dists[inside_radius]
         values_filtered = values[inside_radius]
-
-        # Avoid division by zero for exact match distances
         dists_filtered[dists_filtered == 0] = 1e-6
-
         weights_filtered = 1 / dists_filtered**power
         weights[inside_radius] = weights_filtered
 
@@ -94,40 +87,42 @@ else:
             interpolated_value = np.sum(weights * values) / np.sum(weights)
             st.success(f"✅ Interpolated value at (Lat: {target_lat}, Lon: {target_lon}): {interpolated_value:.2f}")
 
-# Generate lat/lon grid
+# Grid setup
 grid_lon = np.linspace(min(lons), max(lons), 200)
 grid_lat = np.linspace(min(lats), max(lats), 200)
 grid_lon_mesh, grid_lat_mesh = np.meshgrid(grid_lon, grid_lat)
-grid_z = np.zeros_like(grid_lon_mesh)
+grid_z = np.full_like(grid_lon_mesh, np.nan)
 
-# Compute IDW on grid with radius cutoff
+# Convex hull mask
+grid_points = np.column_stack((grid_lon_mesh.ravel(), grid_lat_mesh.ravel()))
+mask = hull_path.contains_points(grid_points).reshape(grid_lon_mesh.shape)
+
+# Interpolation with mask
 for i in range(grid_lat_mesh.shape[0]):
     for j in range(grid_lat_mesh.shape[1]):
+        if not mask[i, j]:
+            continue
         gx, gy = grid_lon_mesh[i, j], grid_lat_mesh[i, j]
         dists = np.array([haversine((gy, gx), (lat, lon), unit=Unit.KILOMETERS)
                           for lat, lon in zip(lats, lons)])
-
         inside_radius = dists <= radius_cutoff
         if not np.any(inside_radius):
-            # No points within radius — assign nearest well's value instead
             nearest_idx = np.argmin(dists)
             grid_z[i, j] = values[nearest_idx]
             continue
-
         dists_filtered = dists[inside_radius]
         values_filtered = values[inside_radius]
         dists_filtered[dists_filtered == 0] = 1e-6
-
         weights = 1 / dists_filtered**power
         grid_z[i, j] = np.sum(weights * values_filtered) / np.sum(weights)
 
 # Plot
 fig, ax = plt.subplots(figsize=(12, 6))
-contour = ax.contourf(grid_lon_mesh, grid_lat_mesh, grid_z, cmap='viridis', levels=20)
-scatter = ax.scatter(lons, lats, c=values, edgecolor='c', cmap='viridis', label='Data Points')
+contour = ax.contourf(grid_lon_mesh, grid_lat_mesh, grid_z, cmap='inferno', levels=20)
+ax.scatter(lons, lats, c='white', edgecolor='k', label='Data Points')
 ax.scatter(target_lon, target_lat, color='red', marker='x', s=100, label='Target Location')
 plt.colorbar(contour, ax=ax, label='Interpolated Value')
-ax.set_title("IDW Interpolation Map (Haversine, aligned to Lat/Lon)")
+ax.set_title("IDW Interpolation Map (Haversine, masked to Convex Hull)")
 ax.set_xlabel("Longitude")
 ax.set_ylabel("Latitude")
 ax.legend()
