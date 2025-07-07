@@ -119,7 +119,7 @@ for i in range(grid_lat_mesh.shape[0]):
 # Plot
 fig, ax = plt.subplots(figsize=(12, 6), dpi=1200)  # Higher DPI for better resolution
 
-contour = ax.contourf(grid_lon_mesh, grid_lat_mesh, grid_z, cmap='inferno', levels=100)  # More levels for smoother gradients
+contour = ax.contourf(grid_lon_mesh, grid_lat_mesh, grid_z, cmap='inferno', levels=1200)  # More levels for smoother gradients
 
 ax.scatter(lons, lats, c='white', edgecolor='k', label='Data Points')
 ax.scatter(target_lon, target_lat, color='red', marker='x', s=100, label='Target Location')
