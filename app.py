@@ -154,7 +154,7 @@ fig.update_layout(
 fig.update_layout(
     legend=dict(
         orientation="h",
-        yanchor="bottom",
+        yanchor="top",
         y=-0.2,
         xanchor="center",
         x=0.5
