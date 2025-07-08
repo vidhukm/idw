@@ -151,4 +151,14 @@ fig.update_layout(
     height=700
 )
 
+fig.update_layout(
+    legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=-0.2,
+        xanchor="center",
+        x=0.5
+    )
+)
+
 st.plotly_chart(fig, use_container_width=False)
