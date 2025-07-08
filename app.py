@@ -63,8 +63,6 @@ def idw_interpolation(x, y, power):
     ])
 if np.any(dists == 0):
     return df.loc[dists == 0, "Kh"].iloc[0]
-    weights = 1 / dists ** power
-    return np.sum(weights * df["Kh"]) / np.sum(weights)
 
 # Interpolation at target
 if not hull_path.contains_point((target_lon, target_lat)):
