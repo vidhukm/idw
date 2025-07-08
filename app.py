@@ -89,7 +89,7 @@ for i in range(grid_lat_mesh.shape[0]):
             grid_z[i, j] = idw_interpolation(grid_lon_mesh[i, j], grid_lat_mesh[i, j], power)
 
 # Plot
-fig, ax = plt.subplots(figsize=(12, 6), dpi=600)
+fig, ax = plt.subplots(figsize=(12, 6), dpi=300)
 ax.set_facecolor('dimgray')
 contour = ax.contourf(grid_lon_mesh, grid_lat_mesh, grid_z, cmap='inferno', levels=200)
 ax.scatter(df["Long"], df["Lat"], c='white', edgecolor='k', label='Data Points')
