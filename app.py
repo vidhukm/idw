@@ -61,7 +61,7 @@ def idw_interpolation(x, y, power):
         haversine((y, x), (lat, lon), unit=Unit.KILOMETERS)
         for lat, lon in zip(df["Lat"], df["Long"])
     ])
-    if np.any(dists == 0):
+if np.any(dists == 0):
     return df.loc[dists == 0, "Kh"].iloc[0]
     weights = 1 / dists ** power
     return np.sum(weights * df["Kh"]) / np.sum(weights)
