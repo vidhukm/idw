@@ -61,8 +61,9 @@ def idw_interpolation(x, y, power):
         haversine((y, x), (lat, lon), unit=Unit.KILOMETERS)
         for lat, lon in zip(df["Lat"], df["Long"])
     ])
-if np.any(dists == 0):
-    return df.loc[dists == 0, "Kh"].iloc[0]
+    dists[dists == 0] = 1e-6
+    weights = 1 / dists ** power
+    return np.sum(weights * df["Kh"]) / np.sum(weights)
 
 # Interpolation at target
 if not hull_path.contains_point((target_lon, target_lat)):
@@ -88,7 +89,7 @@ for i in range(grid_lat_mesh.shape[0]):
             grid_z[i, j] = idw_interpolation(grid_lon_mesh[i, j], grid_lat_mesh[i, j], power)
 
 # Plot
-fig, ax = plt.subplots(figsize=(12, 6), dpi=300)
+fig, ax = plt.subplots(figsize=(12, 6), dpi=600)
 ax.set_facecolor('dimgray')
 contour = ax.contourf(grid_lon_mesh, grid_lat_mesh, grid_z, cmap='inferno', levels=200)
 ax.scatter(df["Long"], df["Lat"], c='white', edgecolor='k', label='Data Points')
