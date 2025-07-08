@@ -146,7 +146,9 @@ fig.update_layout(
     yaxis_title="Latitude",
     plot_bgcolor='dimgray',
     paper_bgcolor='dimgray',
-    font_color='white'
+    font_color='white',
+    width=1200,
+    height=700
 )
 
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, use_container_width=False)
