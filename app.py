@@ -141,7 +141,6 @@ fig.add_trace(go.Scatter(
 ))
 
 fig.update_layout(
-    title="IDW Interpolation Map with Hover Labels",
     xaxis_title="Longitude",
     yaxis_title="Latitude",
     plot_bgcolor='dimgray',
@@ -154,7 +153,7 @@ fig.update_layout(
 fig.update_layout(
     legend=dict(
         orientation="h",
-        yanchor="top",
+        yanchor="bottom",
         y=-0.2,
         xanchor="center",
         x=0.5
