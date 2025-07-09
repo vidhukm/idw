@@ -17,7 +17,7 @@ st.markdown(
 )
 
 # ------------------------
-# Data
+# Original Data
 # ------------------------
 data = {
     'UWI': [
@@ -88,76 +88,37 @@ else:
     st.success(f"Interpolated value: {interpolated_value:.2f}")
 
 # ------------------------
-# Build grid for contour
+# Additional points (no Kh)
 # ------------------------
-grid_lon = np.linspace(df["Long"].min(), df["Long"].max(), 200)
-grid_lat = np.linspace(df["Lat"].min(), df["Lat"].max(), 200)
-grid_lon_mesh, grid_lat_mesh = np.meshgrid(grid_lon, grid_lat)
-grid_z = np.full_like(grid_lon_mesh, np.nan, dtype=float)
+new_points = pd.DataFrame({
+    'UWI': [
+        '101/02-18-010-05W2/00', '101/06-21-010-05W2/00', '101/12-31-010-05W2/00',
+        '101/01-32-010-05W2/00', '101/12-34-010-08W2/00', '101/08-26-010-10W2/00',
+        '101/08-07-011-05W2/00', '102/14-14-011-06W2/00', '105/14-17-011-06W2/00',
+        '103/15-17-011-06W2/00', '101/14-19-011-06W2/00', '101/16-22-011-06W2/00',
+        '103/14-23-011-06W2/00', '101/14-27-011-06W2/00', '101/14-29-011-06W2/00',
+        '101/01-30-011-06W2/00', '101/04-31-011-06W2/00', '102/04-34-011-06W2/00',
+        '101/05-34-011-06W2/00', '101/08-36-011-06W2/00', '101/14-06-011-07W2/00',
+        '101/09-11-011-07W2/00', '101/12-11-011-07W2/00', '101/02-36-011-07W2/00',
+        '101/03-13-011-08W2/00'
+    ],
+    'Lat': [
+        49.814771, 49.832132, 49.866327, 49.857341, 49.868215, 49.846982,
+        49.893545, 49.914881, 49.916131, 49.915046, 49.927481, 49.930120,
+        49.929340, 49.959624, 49.944613, 49.932108, 49.946346, 49.945439,
+        49.948868, 49.949333, 49.886972, 49.894420, 49.897549, 49.947061,
+        49.902719
+    ],
+    'Long': [
+        -102.667045, -102.627060, -102.680538, -102.638395, -103.020105, -103.249499,
+        -102.665668, -102.726501, -102.793379, -102.787880, -102.818935, -102.733293,
+        -102.722465, -102.749376, -102.790980, -102.807662, -102.824224, -102.754334,
+        -102.754400, -102.689783, -102.950880, -102.849813, -102.867676, -102.831193,
+        -102.976637
+    ]
+})
 
-grid_points = np.column_stack((grid_lon_mesh.ravel(), grid_lat_mesh.ravel()))
-mask = hull_path.contains_points(grid_points).reshape(grid_lon_mesh.shape)
-
-for i in range(grid_lat_mesh.shape[0]):
-    for j in range(grid_lat_mesh.shape[1]):
-        if mask[i, j]:
-            grid_z[i, j] = idw_interpolation(grid_lon_mesh[i, j], grid_lat_mesh[i, j], power)
-
-# ------------------------
-# Plotly plot with hover
-# ------------------------
-fig = go.Figure()
-
-# Add contour
-fig.add_trace(go.Contour(
-    x=grid_lon,
-    y=grid_lat,
-    z=grid_z,
-    colorscale='Inferno',
-    contours=dict(start=np.nanmin(grid_z), end=np.nanmax(grid_z), size=0.1),
-    colorbar=dict(title="Interpolated Value"),
-    hovertemplate='Lon: %{x}<br>Lat: %{y}<br>Interp: %{z:.2f}<extra></extra>'
-))
-
-# Add scatter for data points
-fig.add_trace(go.Scatter(
-    x=df["Long"],
-    y=df["Lat"],
-    mode='markers',
-    marker=dict(color='white', size=8, line=dict(color='black', width=1)),
-    name='Data Points',
-    text=df.apply(lambda row: f"UWI: {row['UWI']}<br>Lat: {row['Lat']:.5f}<br>Long: {row['Long']:.5f}<br>Kh: {row['Kh']}", axis=1),
-    hoverinfo='text'
-))
-
-# Add target point
-fig.add_trace(go.Scatter(
-    x=[target_lon],
-    y=[target_lat],
-    mode='markers',
-    marker=dict(color='cyan', size=10, symbol='x'),
-    name='Target',
-    hovertemplate=f"Target Location<br>Lat: {target_lat}<br>Lon: {target_lon}<br>Interp: {interpolated_value:.2f}" if interpolated_value else "Outside convex hull"
-))
-
-fig.update_layout(
-    xaxis_title="Longitude",
-    yaxis_title="Latitude",
-    plot_bgcolor='dimgray',
-    paper_bgcolor='dimgray',
-    font_color='white',
-    width=1200,
-    height=700
-)
-
-fig.update_layout(
-    legend=dict(
-        orientation="h",
-        yanchor="bottom",
-        y=-0.2,
-        xanchor="center",
-        x=0.5
-    )
-)
-
-st.plotly_chart(fig, use_container_width=False)
+def interpolate_new_points(df_new):
+    interpolated = []
+    for _, row in df_new.iterrows():
+        if hull_path.contains_point((row
