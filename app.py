@@ -169,7 +169,7 @@ fig.add_trace(go.Scatter(
     y=df["Lat"],
     mode='markers',
     marker=dict(color='white', size=8, line=dict(color='black', width=1)),
-    name='Data Points',
+    name='Measured Wells',
     text=df.apply(lambda row: f"UWI: {row['UWI']}<br>Lat: {row['Lat']:.5f}<br>Long: {row['Long']:.5f}<br>Kh: {row['Kh']}", axis=1),
     hoverinfo='text'
 ))
@@ -190,7 +190,7 @@ fig.add_trace(go.Scatter(
     y=new_points["Lat"],
     mode='markers',
     marker=dict(color='lime', size=10, symbol='diamond'),
-    name='Interpolated Points',
+    name='Interpolated Wells',
     text=new_points.apply(
         lambda row: f"UWI: {row['UWI']}<br>Lat: {row['Lat']:.5f}<br>Long: {row['Long']:.5f}<br>Interp: {row['Interpolated_Kh']:.2f}"
         if pd.notnull(row['Interpolated_Kh']) else
