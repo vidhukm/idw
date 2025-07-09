@@ -121,4 +121,93 @@ new_points = pd.DataFrame({
 def interpolate_new_points(df_new):
     interpolated = []
     for _, row in df_new.iterrows():
-        if hull_path.contains_point((row
+        if hull_path.contains_point((row['Long'], row['Lat'])):
+            value = idw_interpolation(row['Long'], row['Lat'], power)
+        else:
+            value = None
+        interpolated.append(value)
+    df_new['Interpolated_Kh'] = interpolated
+    return df_new
+
+new_points = interpolate_new_points(new_points)
+
+# ------------------------
+# Build grid for contour
+# ------------------------
+grid_lon = np.linspace(df["Long"].min(), df["Long"].max(), 200)
+grid_lat = np.linspace(df["Lat"].min(), df["Lat"].max(), 200)
+grid_lon_mesh, grid_lat_mesh = np.meshgrid(grid_lon, grid_lat)
+grid_z = np.full_like(grid_lon_mesh, np.nan, dtype=float)
+
+grid_points = np.column_stack((grid_lon_mesh.ravel(), grid_lat_mesh.ravel()))
+mask = hull_path.contains_points(grid_points).reshape(grid_lon_mesh.shape)
+
+for i in range(grid_lat_mesh.shape[0]):
+    for j in range(grid_lat_mesh.shape[1]):
+        if mask[i, j]:
+            grid_z[i, j] = idw_interpolation(grid_lon_mesh[i, j], grid_lat_mesh[i, j], power)
+
+# ------------------------
+# Plotly plot with hover
+# ------------------------
+fig = go.Figure()
+
+# Add contour
+fig.add_trace(go.Contour(
+    x=grid_lon,
+    y=grid_lat,
+    z=grid_z,
+    colorscale='Inferno',
+    contours=dict(start=np.nanmin(grid_z), end=np.nanmax(grid_z), size=0.1),
+    colorbar=dict(title="Interpolated Value"),
+    hovertemplate='Lon: %{x}<br>Lat: %{y}<br>Interp: %{z:.2f}<extra></extra>'
+))
+
+# Add scatter for original data points
+fig.add_trace(go.Scatter(
+    x=df["Long"],
+    y=df["Lat"],
+    mode='markers',
+    marker=dict(color='white', size=8, line=dict(color='black', width=1)),
+    name='Data Points',
+    text=df.apply(lambda row: f"UWI: {row['UWI']}<br>Lat: {row['Lat']:.5f}<br>Long: {row['Long']:.5f}<br>Kh: {row['Kh']}", axis=1),
+    hoverinfo='text'
+))
+
+# Add target point
+fig.add_trace(go.Scatter(
+    x=[target_lon],
+    y=[target_lat],
+    mode='markers',
+    marker=dict(color='cyan', size=10, symbol='x'),
+    name='Target',
+    hovertemplate=f"Target Location<br>Lat: {target_lat}<br>Lon: {target_lon}<br>Interp: {interpolated_value:.2f}" if interpolated_value else "Outside convex hull"
+))
+
+# Add new interpolated points
+fig.add_trace(go.Scatter(
+    x=new_points["Long"],
+    y=new_points["Lat"],
+    mode='markers',
+    marker=dict(color='lime', size=10, symbol='diamond'),
+    name='Interpolated Points',
+    text=new_points.apply(
+        lambda row: f"UWI: {row['UWI']}<br>Lat: {row['Lat']:.5f}<br>Long: {row['Long']:.5f}<br>Interp: {row['Interpolated_Kh']:.2f}"
+        if pd.notnull(row['Interpolated_Kh']) else
+        f"UWI: {row['UWI']}<br>Lat: {row['Lat']:.5f}<br>Long: {row['Long']:.5f}<br>Outside convex hull",
+        axis=1),
+    hoverinfo='text'
+))
+
+fig.update_layout(
+    xaxis_title="Longitude",
+    yaxis_title="Latitude",
+    plot_bgcolor='dimgray',
+    paper_bgcolor='dimgray',
+    font_color='white',
+    width=1200,
+    height=700,
+    legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
+)
+
+st.plotly_chart(fig, use_container_width=False)
