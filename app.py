@@ -131,6 +131,16 @@ def interpolate_new_points(df_new):
 
 new_points = interpolate_new_points(new_points)
 
+
+st.sidebar.header("Export Data")
+csv = new_points.to_csv(index=False)
+st.sidebar.download_button(
+    label="Download Interpolated Data (CSV)",
+    data=csv,
+    file_name='interpolated_green_points.csv',
+    mime='text/csv'
+)
+
 # ------------------------
 # Build grid for contour
 # ------------------------
