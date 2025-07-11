@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import io
 from scipy.spatial import ConvexHull
 from matplotlib.path import Path
 from haversine import haversine, Unit
@@ -131,14 +132,16 @@ def interpolate_new_points(df_new):
 
 new_points = interpolate_new_points(new_points)
 
-
+# ------------------------
+# Export interpolated data
+# ------------------------
 st.sidebar.header("Export Data")
 csv = new_points.to_csv(index=False)
 st.sidebar.download_button(
-    label="Download Interpolated Data (CSV)",
-    data=csv,
-    file_name='interpolated_green_points.csv',
-    mime='text/csv'
+    label="Download Interpolated Data (CSV)",
+    data=csv,
+    file_name='interpolated_green_points.csv',
+    mime='text/csv'
 )
 
 # ------------------------
